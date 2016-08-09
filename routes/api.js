@@ -31,48 +31,126 @@ router.route('/user')
         var mEmail = (req.body.email).indexOf("@")!=-1 ? req.body.email : false;
         var mPhone = req.body.phone;
         var mAccType = isAlphanumeric(req.body.accType);
+        var mGoogleID = mAccType == "google" ? hash("PI_GTOKEN_"+req.body.gid) : 0;
 
-        if(!mUsername || !mPass || !mEmail || !mAccType){
-            res.send(JSON.stringify({
-                status : false,
-                err : {
-                    msg : "Invalid Data"
-                }
-            }));
-        }
-        else{
-            var data =  {
+        var data;
+        if(mAccType == "general") {
+            if (!mUsername || !mPass || !mEmail || !mAccType) {
+                res.send(JSON.stringify({
+                    status: false,
+                    err: {
+                        msg: "Invalid Data"
+                    }
+                }));
+            }
+            data =  {
                 username : mUsername,
                 password : hash(mPass),
                 email : mEmail,
                 phone : mPhone,
-                accType : mAccType
+                accType : "general"
             };
-            var query = mysqlConn.query('INSERT INTO USER SET ?',data,function (err, sqlRes) {
-                if(err){
+        }
+        else{
+            data =  {
+                username : mUsername,
+                email : mEmail,
+                phone : mPhone,
+                gid : mGoogleID,
+                accType : "google"
+            };
+        }
+        var preQuery = mysqlConn.query("SELECT id FROM USER WHERE username = '"+mUsername+"'",function (err, preQueryRes) {
+            if(err){
+                res.send(JSON.stringify({
+                    status : false,
+                    err : {
+                        msg : err.code
+                    }
+                }));
+            }
+            else {
+                if(preQueryRes.length!=0){
                     res.send(JSON.stringify({
                         status : false,
                         err : {
-                            msg : err.code
+                            msg : "Account already exist",
+                            code: 201
                         }
                     }));
                 }
                 else{
+                    var query = mysqlConn.query('INSERT INTO USER SET ?',data,function (err, sqlRes) {
+                        if(err){
+                            res.send(JSON.stringify({
+                                status : false,
+                                err : {
+                                    msg : err.code
+                                }
+                            }));
+                        }
+                        else{
+                            res.send(JSON.stringify({
+                                status : true,
+                                token : mGoogleID,
+                                err : null
+                            }));
+                        }
+                    });
+                }
+            }
+        });
+
+    })
+    .get(function (req,res){
+        var accType = req.query.type;
+        var email;
+        var username;
+        if(accType == "google")
+            email = req.query.email;
+        else
+            username = req.query.username;
+
+        var sql = "SELECT ID FROM USER WHERE "+ (accType=="google" ? "email = '"+email+"' AND accType = 'google'" : "username = '"+username+"' AND accType = 'general'");
+        var query = mysqlConn.query(sql,function (err, sqlRes) {
+            if(err){
+                res.send(JSON.stringify({
+                    status : false,
+                    err : {
+                        msg : err.code
+                    }
+                }));
+            }
+            else{
+                if(sqlRes.length!=0) {
                     res.send(JSON.stringify({
-                        status : true,
-                        err : null
+                        status: true,
+                        err: null
                     }));
                 }
-            });
-
-        }
+                else{
+                    res.send(JSON.stringify({
+                        status : false,
+                        err : {
+                            msg : "Account not found",
+                            code: 101
+                        }
+                    }));
+                }
+            }
+        });
     });
 router.route('/user/login')
     .post(function (req,res) {
         var mUsername = req.body.username;
-        var mPass = hash(req.body.pass);
+        var mPass = req.body.pass;
+        var mToken = req.body.token;
+        var mType = req.body.type;
+        var mEmail = req.body.email;
 
-        var query = mysqlConn.query("SELECT * FROM USER WHERE USERNAME = '"+mUsername+"' AND PASSWORD = '"+mPass+"'",function (err, sqlRes) {
+        var gSQL = "SELECT * FROM USER WHERE email = '"+mEmail+"' AND gid='"+mToken+"' AND accType = 'google'";
+        var SQL = "SELECT * FROM USER WHERE username = '"+mUsername+"' AND password = '"+mPass+"' AND accType = 'general'";
+        var query = mysqlConn.query(mType == 'google' ? gSQL : SQL,function (err, sqlRes) {
            if(err){
                res.send(JSON.stringify({
                    status : false,
@@ -114,7 +192,9 @@ function isAlphanumeric( str ) {
 }
 function hash(str){
     var sha256 = createHash('sha256');
-   return sha256.update(str, 'utf8').digest("hex");
+    var res = sha256.update(str, 'utf8').digest("hex");
+    console.log(str+" : "+res);
+   return res;
 }
 
 
