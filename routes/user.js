@@ -1,29 +1,16 @@
-/** API
- *
- *         Important
- *   Before making a request to the API,
- *   please make sure the content type was
- *   successfully set into json and the data
- *   was sent with json format
- *
-    Content-Type: application/json
-
-
- **/
-
+var config = require('../config.json');
 var express = require('express');
 var createHash = require('sha.js');
 var router = express.Router();
 var mysql      = require('mysql');
 var mysqlConn = mysql.createConnection({
-    host     : 'localhost',
-    user     : 'root',
-    password : '',
+    host     : config.MYSQL_SERVER_HOST,
+    user     : 'partyideas_backend_api',
+    password : 'api',
     database : 'partyideas'
 });
 
-/* GET home page. */
-router.route('/user')
+router.route('/')
     .post(function (req,res) {
         //new user account
         var mUsername = isAlphanumeric(req.body.username);
@@ -140,7 +127,7 @@ router.route('/user')
             }
         });
     });
-router.route('/user/login')
+router.route('/login')
     .post(function (req,res) {
         var mUsername = req.body.username;
         var mPass = req.body.pass;
@@ -151,38 +138,38 @@ router.route('/user/login')
         var gSQL = "SELECT * FROM USER WHERE email = '"+mEmail+"' AND gid='"+mToken+"' AND accType = 'google'";
         var SQL = "SELECT * FROM USER WHERE username = '"+mUsername+"' AND password = '"+mPass+"' AND accType = 'general'";
         var query = mysqlConn.query(mType == 'google' ? gSQL : SQL,function (err, sqlRes) {
-           if(err){
-               res.send(JSON.stringify({
-                   status : false,
-                   err : {
-                       msg : err.code,
-                       code: 100
-                   }
-               }));
-           }
-           else{
-               if(sqlRes.length==0){
-                   res.send(JSON.stringify({
-                       status : false,
-                       err : {
-                           msg : "Account not found or password mismatch",
-                           code: 101
-                       }
-                   }));
-               }
-               else{
-                   res.send(JSON.stringify({
-                       status : true,
-                       err : null,
-                       data: {
-                           username : sqlRes[0].username,
-                           email : sqlRes[0].email,
-                           phone: sqlRes[0].phone,
-                           accType: sqlRes[0].accType
-                       }
-                   }));
-               }
-           }
+            if(err){
+                res.send(JSON.stringify({
+                    status : false,
+                    err : {
+                        msg : err.code,
+                        code: 100
+                    }
+                }));
+            }
+            else{
+                if(sqlRes.length==0){
+                    res.send(JSON.stringify({
+                        status : false,
+                        err : {
+                            msg : "Account not found or password mismatch",
+                            code: 101
+                        }
+                    }));
+                }
+                else{
+                    res.send(JSON.stringify({
+                        status : true,
+                        err : null,
+                        data: {
+                            username : sqlRes[0].username,
+                            email : sqlRes[0].email,
+                            phone: sqlRes[0].phone,
+                            accType: sqlRes[0].accType
+                        }
+                    }));
+                }
+            }
 
         });
         console.log(query.sql);
@@ -194,8 +181,6 @@ function hash(str){
     var sha256 = createHash('sha256');
     var res = sha256.update(str, 'utf8').digest("hex");
     console.log(str+" : "+res);
-   return res;
+    return res;
 }
-
-
 module.exports = router;
