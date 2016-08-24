@@ -7,11 +7,14 @@ var mysqlConn = mysql.createConnection({
     host     : config.MYSQL_SERVER_HOST,
     user     : 'partyideas_backend_api',
     password : 'api',
-    database : 'partyideas'
+    database : 'partyideas',
+    multipleStatements: true
 });
 
+var req,res;
 router.route('/')
     .get(function (req, res) {
+
         getRoom(function (obj){
             if(obj.err){
                 res.send(JSON.stringify({
@@ -146,6 +149,143 @@ router.route('/member')
             }
         });
     });
+router.route('/join/:roomID')
+    .post(function (req, res) {
+        var roomId = req.params.roomID;
+        var username = req.body.username;
+        var token = req.body.token;
+        authUser(username,token,function(callbackObj){
+            if(!callbackObj.err){
+                var userID = callbackObj.userData.id;
+                getMember(roomId,function(memberObj){
+                    if(memberObj.data == null){
+                        res.send(JSON.stringify({
+                            status : false,
+                            err : {
+                                msg : "room not found"
+                            }
+                        }));
+                    }
+                    else {
+                        var memberArr = JSON.parse(memberObj.data.member);
+                        if (memberArr.indexOf(userID) == -1) {
+                            memberArr.push(callbackObj.userData.id);
+                            getUserJoinedEvents(userID, function (joinedEvents) {
+                                var eventArr = joinedEvents.data;
+                                if (eventArr != null) {
+                                    eventArr.push(roomId);
+                                    var query = mysqlConn.query(
+                                        "UPDATE gameroom SET member = '" + JSON.stringify(memberArr) + "' WHERE id = '" + roomId + "';" +
+                                        "UPDATE user SET joinedRoom = '" + JSON.stringify(eventArr) + "' WHERE id = '" + userID + "';"
+                                        , function (err, sqlRes) {
+                                            if (err) {
+                                                res.send(JSON.stringify({
+                                                    status: false,
+                                                    err: {
+                                                        msg: err.msg
+                                                    }
+                                                }));
+                                            }
+                                            else {
+                                                if (sqlRes[0].changedRows != 0) {
+                                                    res.send(JSON.stringify({
+                                                        status: true,
+                                                        err: null
+                                                    }));
+                                                }
+                                                else {
+                                                    res.send(JSON.stringify({
+                                                        status: false,
+                                                        err: {
+                                                            msg: "Fail to join event id: " + roomId
+                                                        }
+                                                    }));
+                                                }
+                                            }
+                                        });
+                                }
+                            });
+                        }
+                        else {
+                            res.send(JSON.stringify({
+                                status: false,
+                                err: {
+                                    msg: "You already joined"
+                                }
+                            }));
+                        }
+                    }
+                });
+            }
+            else{
+                res.send(JSON.stringify({
+                    status : false,
+                    err : {
+                        msg : callbackObj.msg
+                    }
+                }));
+            }
+        });
+});
+function authUser(username,token,callback){
+    var accNotFound = {
+        err : true,
+        msg : 'account not found or password mismatch'
+    };
+    var query = mysqlConn.query("SELECT * FROM user WHERE username = '"+username+"'",function (err, sqlRes) {
+        if(err){
+            callback({
+                err : true,
+                msg : err.msg
+            });
+        }
+        else{
+            if(sqlRes.length!=0){
+                var userObj = sqlRes[0];
+                if(userObj.accType == 'general'){
+                    if(userObj.password == token){
+                        callback({
+                            err:false,
+                            userData: userObj
+                        });
+                    }
+                    else
+                        callback(accNotFound);
+                }
+                else if(userObj.accType == "google"){
+                    if(userObj.gid == token){
+                        callback({
+                            err:false,
+                            userData: userObj
+                        });
+                    }
+                    else
+                        callback(accNotFound);
+                }
+            }
+            else{
+                callback(accNotFound);
+            }
+
+        }
+    });
+}
+function getUserJoinedEvents(uid,callback){
+    var query = mysqlConn.query("SELECT joinedRoom FROM user WHERE id = '"+uid+"'",function (err, sqlRes) {
+        if(err){
+            callback({
+                err : true,
+                msg : err.msg
+            });
+        }
+        else{
+            callback({
+                err : false,
+                data : JSON.parse(sqlRes[0].joinedRoom == "" ? "[]" : sqlRes[0].joinedRoom)
+            });
+        }
+    });
+}
 function getMember(rid,callback){
     var query = mysqlConn.query("SELECT member FROM gameroom WHERE id = '"+rid+"'",function (err, sqlRes) {
         if(err){
@@ -155,6 +295,8 @@ function getMember(rid,callback){
             });
         }
         else{
+            console.log(query.sql);
+            console.log(sqlRes[0]);
             callback({
                 err : false,
                 data : sqlRes[0]

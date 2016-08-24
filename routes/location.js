@@ -44,6 +44,36 @@ router.route('/')
     .post(function (req, res) {
 
     });
+router.route('/:id')
+    .get(function(req,res){
+        var query = mysqlConn.query("SELECT * FROM location WHERE id = '"+req.params.id+"'",function (err, sqlRes) {
+            if(err){
+                res.send(JSON.stringify({
+                    status : false,
+                    err : {
+                        msg : err.code
+                    }
+                }));
+            }
+            else{
+                if(sqlRes.length!=0) {
+                    res.send(JSON.stringify({
+                        status: true,
+                        err: null,
+                        data : sqlRes
+                    }));
+                }
+                else{
+                    res.send(JSON.stringify({
+                        status : false,
+                        err : {
+                            msg : "No location record"
+                        }
+                    }));
+                }
+            }
+        });
+    });
 
 function hash(str){
     var sha256 = createHash('sha256');

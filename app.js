@@ -32,8 +32,12 @@ var mysqlConn = mysql.createConnection({
   database : 'partyideas'
 });
 mysqlConn.ping(function (err) {
-  if (err) throw err;
-  console.log('MySQL server connection established : ' + config.MYSQL_SERVER_HOST);
+  if (err) {
+    console.log('[FATAL] MySQL server connection FAILURE');
+  }
+  else {
+    console.log('[OK] MySQL server connection established : ' + config.MYSQL_SERVER_HOST);
+  }
 });
 
 app.use('/', routes);
