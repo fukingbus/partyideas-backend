@@ -51,6 +51,7 @@ router.route('/')
         var duration = req.body.duration;
         var idLoc = req.body.idLoc;
         var desc = req.body.desc;
+        var game = req.body.game;
 
         var userID = getUserID(mUsername,function (obj) {
             if(obj.err){
@@ -72,6 +73,7 @@ router.route('/')
                         length : duration,
                         idLocation : idLoc,
                         description : desc,
+                        game:game,
                         status : 'PENDING'
                     };
                     var query = mysqlConn.query('INSERT INTO gameroom SET ?',sqlData,function (err, sqlRes) {
@@ -106,9 +108,9 @@ router.route('/')
         })
 
     });
-router.route('/member')
+router.route('/member/:id')
     .get(function (req, res) {
-        var roomid = req.query.id;
+        var roomid = req.params.id;
         getMember(roomid,function (obj) {
             if(obj.err){
                 res.send(JSON.stringify({
@@ -129,9 +131,10 @@ router.route('/member')
                             counter++;
                             if(counter === arr.length) {
                                 res.send(JSON.stringify({
-                                    status : false,
+                                    status : true,
                                     err: null,
-                                    data : emptyArr
+                                    data : emptyArr,
+                                    size : emptyArr.length
                                 }));
                             }
                         });
@@ -176,6 +179,7 @@ router.route('/join/:roomID')
                                     eventArr.push(roomId);
                                     var query = mysqlConn.query(
                                         "UPDATE gameroom SET member = '" + JSON.stringify(memberArr) + "' WHERE id = '" + roomId + "';" +
+                                        "UPDATE gameroom SET rsvp_yes = rsvp_yes + 1 WHERE id = '"+roomId+"';"+
                                         "UPDATE user SET joinedRoom = '" + JSON.stringify(eventArr) + "' WHERE id = '" + userID + "';"
                                         , function (err, sqlRes) {
                                             if (err) {
@@ -295,8 +299,6 @@ function getMember(rid,callback){
             });
         }
         else{
-            console.log(query.sql);
-            console.log(sqlRes[0]);
             callback({
                 err : false,
                 data : sqlRes[0]
@@ -356,7 +358,6 @@ function getUserID(username,callback){
 function hash(str){
     var sha256 = createHash('sha256');
     var res = sha256.update(str, 'utf8').digest("hex");
-    console.log(str+" : "+res);
     return res;
 }
 module.exports = router;

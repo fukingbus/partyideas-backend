@@ -44,6 +44,8 @@ app.use('/', routes);
 app.use('/api/user/', require('./routes/user'));
 app.use('/api/room/', require('./routes/room'));
 app.use('/api/location/', require('./routes/location'));
+app.use('/api/game/', require('./routes/games'));
+app.use('/api/shop/', require('./routes/shop'));
 
 
 // catch 404 and forward to error handler
